@@ -97,7 +97,7 @@ pub fn part_one(input: &str) -> Option<usize> {
 
     let visited = [false; 60];
     let caves = Caves::new(dist, flow_rates);
-    Some(caves.dfs(visited, 0, 30))
+    Some(caves.dfs(visited, *map.get("AA").unwrap(), 30))
 }
 
 // pub fn part_two(input: &str) -> Option<usize> {
