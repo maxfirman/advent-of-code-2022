@@ -74,7 +74,6 @@ pub fn part_one(input: &str) -> Option<usize> {
         .map(|(a, b)| (b, a))
         .collect::<HashMap<_, _>>();
 
-    println!("{map:?}");
     let graph = input
         .lines()
         .map(|line| {
@@ -89,11 +88,9 @@ pub fn part_one(input: &str) -> Option<usize> {
         })
         .collect::<Vec<_>>();
 
-    println!("{graph:?}");
     let dist = (0..graph.len())
         .map(|source| dijkstra(&graph, source))
         .collect::<Vec<Vec<_>>>();
-    println!("{:?}", dist);
 
     let visited = [false; 60];
     let caves = Caves::new(dist, flow_rates);
