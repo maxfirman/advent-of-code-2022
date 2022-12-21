@@ -10,20 +10,20 @@ impl Caves {
         Self { graph, flow_rates }
     }
 
-    fn dfs(&self, mut visited: [bool; 64], i: usize, mut minutes_remaining: usize) -> usize {
-        if minutes_remaining <= 1 {
+    fn dfs(&self, mut visited: [bool; 60], i: usize, mut minutes_remaining: usize) -> usize {
+        if minutes_remaining <= 0 {
             return 0;
         }
         let mut val = 0usize;
         if !visited[i] && self.flow_rates[i] > 0 {
             minutes_remaining -= 1;
-            val += self.flow_rates[i] * minutes_remaining as usize;
-            visited[i] = true;
+            val += self.flow_rates[i] * minutes_remaining;
         }
+        visited[i] = true;
         val + self.graph[i]
             .iter()
             .enumerate()
-            .filter(|(j, &d)| !visited[*j] && self.flow_rates[*j] > 0 && minutes_remaining > d)
+            .filter(|(j, &d)| !visited[*j] && self.flow_rates[*j] > 0 && minutes_remaining >= d)
             .map(|(j, &d)| self.dfs(visited, j, minutes_remaining - d))
             .max()
             .unwrap_or(0)
@@ -74,7 +74,7 @@ pub fn part_one(input: &str) -> Option<usize> {
         .map(|(a, b)| (b, a))
         .collect::<HashMap<_, _>>();
 
-    // println!("{map:?}");
+    println!("{map:?}");
     let graph = input
         .lines()
         .map(|line| {
@@ -89,12 +89,13 @@ pub fn part_one(input: &str) -> Option<usize> {
         })
         .collect::<Vec<_>>();
 
+    println!("{graph:?}");
     let dist = (0..graph.len())
         .map(|source| dijkstra(&graph, source))
         .collect::<Vec<Vec<_>>>();
-    // println!("{:?}", dist);
+    println!("{:?}", dist);
 
-    let visited = [false; 64];
+    let visited = [false; 60];
     let caves = Caves::new(dist, flow_rates);
     Some(caves.dfs(visited, 0, 30))
 }
