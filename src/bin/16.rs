@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 
 struct Caves {
@@ -10,23 +11,44 @@ impl Caves {
         Self { graph, flow_rates }
     }
 
-    fn dfs(&self, mut visited: [bool; 60], i: usize, mut minutes_remaining: usize) -> usize {
-        if minutes_remaining <= 0 {
+    fn part1(&self, mut visited: Vec<bool>, i: usize, mut minutes_remaining: usize) -> usize {
+        if minutes_remaining <= 1 {
             return 0;
         }
         let mut val = 0usize;
         if !visited[i] && self.flow_rates[i] > 0 {
             minutes_remaining -= 1;
             val += self.flow_rates[i] * minutes_remaining;
+            visited[i] = true;
         }
-        visited[i] = true;
         val + self.graph[i]
             .iter()
             .enumerate()
             .filter(|(j, &d)| !visited[*j] && self.flow_rates[*j] > 0 && minutes_remaining >= d)
-            .map(|(j, &d)| self.dfs(visited, j, minutes_remaining - d))
+            .map(|(j, &d)| self.part1(visited.clone(), j, minutes_remaining - d))
             .max()
             .unwrap_or(0)
+    }
+    fn part2(&self, mut visited: Vec<bool>, i: usize, mut minutes_remaining: usize) -> usize {
+        if minutes_remaining <= 1 {
+            return 0;
+        }
+        let mut val = 0usize;
+        if !visited[i] && self.flow_rates[i] > 0 {
+            minutes_remaining -= 1;
+            val += self.flow_rates[i] * minutes_remaining;
+            visited[i] = true;
+        }
+        val + max(
+            self.graph[i]
+                .iter()
+                .enumerate()
+                .filter(|(j, &d)| !visited[*j] && self.flow_rates[*j] > 0 && minutes_remaining >= d)
+                .map(|(j, &d)| self.part2(visited.clone(), j, minutes_remaining - d))
+                .max()
+                .unwrap_or(0),
+            self.part1(visited.clone(), 0, 26),
+        )
     }
 }
 
@@ -88,23 +110,64 @@ pub fn part_one(input: &str) -> Option<usize> {
         })
         .collect::<Vec<_>>();
 
-    let dist = (0..graph.len())
+    let n = graph.len();
+    let dist = (0..n)
         .map(|source| dijkstra(&graph, source))
         .collect::<Vec<Vec<_>>>();
 
-    let visited = [false; 60];
     let caves = Caves::new(dist, flow_rates);
-    Some(caves.dfs(visited, *map.get("AA").unwrap(), 30))
+    Some(caves.part1(vec![false; n], *map.get("AA").unwrap(), 30))
 }
 
-// pub fn part_two(input: &str) -> Option<usize> {
-//     None
-// }
+pub fn part_two(input: &str) -> Option<usize> {
+    let flow_rates = input
+        .lines()
+        .map(|line| {
+            line.split_once(";")
+                .unwrap()
+                .0
+                .split_once("=")
+                .unwrap()
+                .1
+                .parse::<usize>()
+                .unwrap()
+        })
+        .collect::<Vec<_>>();
+    let map = input
+        .lines()
+        .map(|line| &line[6..8])
+        .enumerate()
+        .map(|(a, b)| (b, a))
+        .collect::<HashMap<_, _>>();
+
+    let graph = input
+        .lines()
+        .map(|line| {
+            line.split_once(";")
+                .unwrap()
+                .1
+                .split_at(23)
+                .1
+                .split(", ")
+                .map(|k| *map.get(k.trim()).unwrap())
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    let n = graph.len();
+    let dist = (0..n)
+        .map(|source| dijkstra(&graph, source))
+        .collect::<Vec<Vec<_>>>();
+
+    let caves = Caves::new(dist, flow_rates);
+    Some(caves.part2(vec![false; n], *map.get("AA").unwrap(), 26))
+
+}
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 16);
     advent_of_code::solve!(1, part_one, input);
-    // advent_of_code::solve!(2, part_two, input);
+    advent_of_code::solve!(2, part_two, input);
 }
 
 #[cfg(test)]
@@ -117,9 +180,9 @@ mod tests {
         assert_eq!(part_one(&input), Some(1651));
     }
 
-    // #[test]
-    // fn test_part_two() {
-    //     let input = advent_of_code::read_file("examples", 16);
-    //     assert_eq!(part_two(&input), None);
-    // }
+    #[test]
+    fn test_part_two() {
+        let input = advent_of_code::read_file("examples", 16);
+        assert_eq!(part_two(&input), Some(1707));
+    }
 }
