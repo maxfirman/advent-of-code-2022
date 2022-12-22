@@ -1,17 +1,82 @@
 use std::cmp::max;
 use std::collections::{HashMap, HashSet};
 
+const START_POSITION: &str = "AA";
+const PART1_MINUTES: usize = 30;
+const PART2_MINUTES: usize = 26;
+
 struct Caves {
     graph: Vec<Vec<usize>>,
     flow_rates: Vec<usize>,
+    map: HashMap<String, usize>,
 }
 
 impl Caves {
-    fn new(graph: Vec<Vec<usize>>, flow_rates: Vec<usize>) -> Self {
-        Self { graph, flow_rates }
+    fn from_input(input: &str) -> Self {
+        let flow_rates = input
+            .lines()
+            .map(|line| {
+                line.split_once(";")
+                    .unwrap()
+                    .0
+                    .split_once("=")
+                    .unwrap()
+                    .1
+                    .parse::<usize>()
+                    .unwrap()
+            })
+            .collect::<Vec<_>>();
+
+        let map = input
+            .lines()
+            .map(|line| &line[6..8])
+            .enumerate()
+            .map(|(a, b)| (b.to_owned(), a))
+            .collect::<HashMap<_, _>>();
+
+        let graph = input
+            .lines()
+            .map(|line| {
+                line.split_once(";")
+                    .unwrap()
+                    .1
+                    .split_at(23)
+                    .1
+                    .split(", ")
+                    .map(|k| *map.get(k.trim()).unwrap())
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+
+        let n = graph.len();
+        let graph = (0..n)
+            .map(|source| dijkstra(&graph, source))
+            .collect::<Vec<Vec<_>>>();
+
+        Self {
+            graph,
+            flow_rates,
+            map,
+        }
     }
 
-    fn part1(&self, mut visited: Vec<bool>, i: usize, mut minutes_remaining: usize) -> usize {
+    fn part1(&self) -> usize {
+        self._part1(
+            vec![false; self.graph.len()],
+            *self.map.get(START_POSITION).unwrap(),
+            PART1_MINUTES,
+        )
+    }
+
+    fn part2(&self) -> usize {
+        self._part2(
+            vec![false; self.graph.len()],
+            *self.map.get(START_POSITION).unwrap(),
+            PART2_MINUTES,
+        )
+    }
+
+    fn _part1(&self, mut visited: Vec<bool>, i: usize, mut minutes_remaining: usize) -> usize {
         if minutes_remaining <= 1 {
             return 0;
         }
@@ -25,11 +90,11 @@ impl Caves {
             .iter()
             .enumerate()
             .filter(|(j, &d)| !visited[*j] && self.flow_rates[*j] > 0 && minutes_remaining >= d)
-            .map(|(j, &d)| self.part1(visited.clone(), j, minutes_remaining - d))
+            .map(|(j, &d)| self._part1(visited.clone(), j, minutes_remaining - d))
             .max()
             .unwrap_or(0)
     }
-    fn part2(&self, mut visited: Vec<bool>, i: usize, mut minutes_remaining: usize) -> usize {
+    fn _part2(&self, mut visited: Vec<bool>, i: usize, mut minutes_remaining: usize) -> usize {
         if minutes_remaining <= 1 {
             return 0;
         }
@@ -44,10 +109,10 @@ impl Caves {
                 .iter()
                 .enumerate()
                 .filter(|(j, &d)| !visited[*j] && self.flow_rates[*j] > 0 && minutes_remaining >= d)
-                .map(|(j, &d)| self.part2(visited.clone(), j, minutes_remaining - d))
+                .map(|(j, &d)| self._part2(visited.clone(), j, minutes_remaining - d))
                 .max()
                 .unwrap_or(0),
-            self.part1(visited.clone(), 0, 26),
+            self._part1(visited.clone(), 0, PART2_MINUTES),
         )
     }
 }
@@ -76,92 +141,13 @@ fn dijkstra(graph: &Vec<Vec<usize>>, source: usize) -> Vec<usize> {
 
 
 pub fn part_one(input: &str) -> Option<usize> {
-    let flow_rates = input
-        .lines()
-        .map(|line| {
-            line.split_once(";")
-                .unwrap()
-                .0
-                .split_once("=")
-                .unwrap()
-                .1
-                .parse::<usize>()
-                .unwrap()
-        })
-        .collect::<Vec<_>>();
-    let map = input
-        .lines()
-        .map(|line| &line[6..8])
-        .enumerate()
-        .map(|(a, b)| (b, a))
-        .collect::<HashMap<_, _>>();
-
-    let graph = input
-        .lines()
-        .map(|line| {
-            line.split_once(";")
-                .unwrap()
-                .1
-                .split_at(23)
-                .1
-                .split(", ")
-                .map(|k| *map.get(k.trim()).unwrap())
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-
-    let n = graph.len();
-    let dist = (0..n)
-        .map(|source| dijkstra(&graph, source))
-        .collect::<Vec<Vec<_>>>();
-
-    let caves = Caves::new(dist, flow_rates);
-    Some(caves.part1(vec![false; n], *map.get("AA").unwrap(), 30))
+    Some(Caves::from_input(input).part1())
 }
 
 pub fn part_two(input: &str) -> Option<usize> {
-    let flow_rates = input
-        .lines()
-        .map(|line| {
-            line.split_once(";")
-                .unwrap()
-                .0
-                .split_once("=")
-                .unwrap()
-                .1
-                .parse::<usize>()
-                .unwrap()
-        })
-        .collect::<Vec<_>>();
-    let map = input
-        .lines()
-        .map(|line| &line[6..8])
-        .enumerate()
-        .map(|(a, b)| (b, a))
-        .collect::<HashMap<_, _>>();
-
-    let graph = input
-        .lines()
-        .map(|line| {
-            line.split_once(";")
-                .unwrap()
-                .1
-                .split_at(23)
-                .1
-                .split(", ")
-                .map(|k| *map.get(k.trim()).unwrap())
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-
-    let n = graph.len();
-    let dist = (0..n)
-        .map(|source| dijkstra(&graph, source))
-        .collect::<Vec<Vec<_>>>();
-
-    let caves = Caves::new(dist, flow_rates);
-    Some(caves.part2(vec![false; n], *map.get("AA").unwrap(), 26))
-
+    Some(Caves::from_input(input).part2())
+    // let caves = Caves::from_input(input);
+    // Some(caves.part2(vec![false; n], 0, 26))
 }
 
 fn main() {
