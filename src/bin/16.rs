@@ -94,6 +94,7 @@ impl Caves {
             .max()
             .unwrap_or(0)
     }
+
     fn _part2(&self, mut visited: Vec<bool>, i: usize, mut minutes_remaining: usize) -> usize {
         if minutes_remaining <= 1 {
             return 0;
@@ -146,8 +147,6 @@ pub fn part_one(input: &str) -> Option<usize> {
 
 pub fn part_two(input: &str) -> Option<usize> {
     Some(Caves::from_input(input).part2())
-    // let caves = Caves::from_input(input);
-    // Some(caves.part2(vec![false; n], 0, 26))
 }
 
 fn main() {
