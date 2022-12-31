@@ -7,7 +7,7 @@ use regex::Regex;
 
 use Robot::*;
 
-#[derive(Hash, PartialEq, Eq, Debug, Ord, PartialOrd, Clone, Copy)]
+#[derive(Clone, Copy)]
 enum Robot {
     Null,
     Ore { ore: u32 },
@@ -16,7 +16,7 @@ enum Robot {
     Geode { ore: u32, obsidian: u32 },
 }
 
-#[derive(Clone, Copy, Eq, PartialEq, PartialOrd, Hash, Debug)]
+#[derive(Clone, Copy)]
 struct Account {
     ore: u32,
     clay: u32,
