@@ -7,7 +7,7 @@ use regex::Regex;
 
 use Robot::*;
 
-#[derive(Hash, PartialEq, Eq, Debug, Ord, PartialOrd, Clone)]
+#[derive(Hash, PartialEq, Eq, Debug, Ord, PartialOrd, Clone, Copy)]
 enum Robot {
     Null,
     Ore { ore: u32 },
@@ -25,18 +25,6 @@ struct Account {
 }
 
 impl Account {
-    fn can_afford(&self, robot: &Robot) -> bool {
-        match robot {
-            Null => true,
-            Ore { ore } => self.ore >= *ore,
-            Clay { ore } => self.ore >= *ore,
-            Obsidian { ore, clay } => self.ore >= *ore && self.clay >= *clay,
-            Geode { ore, obsidian } => self.ore >= *ore && self.obsidian >= *obsidian,
-        }
-    }
-}
-
-impl Account {
     fn new() -> Account {
         Self {
             ore: 0,
@@ -45,12 +33,13 @@ impl Account {
             geode: 0,
         }
     }
-    fn ore() -> Account {
-        Self {
-            ore: 1,
-            clay: 0,
-            obsidian: 0,
-            geode: 0,
+    fn can_afford(&self, robot: &Robot) -> bool {
+        match robot {
+            Null => true,
+            Ore { ore } => self.ore >= *ore,
+            Clay { ore } => self.ore >= *ore,
+            Obsidian { ore, clay } => self.ore >= *ore && self.clay >= *clay,
+            Geode { ore, obsidian } => self.ore >= *ore && self.obsidian >= *obsidian,
         }
     }
 }
@@ -80,6 +69,65 @@ impl ops::AddAssign<Account> for Account {
         self.clay += rhs.clay;
         self.obsidian += rhs.obsidian;
         self.geode += rhs.geode;
+    }
+}
+
+impl ops::AddAssign<Robot> for Account {
+    fn add_assign(&mut self, rhs: Robot) {
+        match rhs {
+            Ore { .. } => self.ore += 1,
+            Clay { .. } => self.clay += 1,
+            Obsidian { .. } => self.obsidian += 1,
+            Geode { .. } => self.geode += 1,
+            Null => {}
+        }
+    }
+}
+
+impl ops::Sub<Account> for Account {
+    type Output = Self;
+
+    fn sub(self, rhs: Account) -> Self::Output {
+        Self {
+            ore: self.ore - rhs.ore,
+            clay: self.clay - rhs.clay,
+            obsidian: self.obsidian - rhs.obsidian,
+            geode: self.geode - rhs.geode,
+        }
+    }
+}
+
+impl ops::Add<Robot> for Account {
+    type Output = Self;
+
+    fn add(self, rhs: Robot) -> Self::Output {
+        match rhs {
+            Null => self,
+            Ore { ore } => Self {
+                ore: self.ore + ore,
+                clay: self.clay,
+                obsidian: self.obsidian,
+                geode: self.geode,
+            },
+            Clay { ore } => Self {
+                ore: self.ore + ore,
+                clay: self.clay,
+                obsidian: self.obsidian,
+                geode: self.geode,
+            },
+            Obsidian { ore, clay } => Self {
+                ore: self.ore + ore,
+                clay: self.clay + clay,
+                obsidian: self.obsidian,
+                geode: self.geode,
+            },
+            Geode { ore, obsidian } => Self {
+                ore: self.ore + ore,
+                clay: self.clay,
+                obsidian: self.obsidian + obsidian,
+                geode: self.geode,
+            },
+        }
     }
 }
 
@@ -148,20 +196,14 @@ impl Game {
         account += robots;
 
         // Build
-        match robot_to_build {
-            Ore { .. } => robots.ore += 1,
-            Clay { .. } => robots.clay += 1,
-            Obsidian { .. } => robots.obsidian += 1,
-            Geode { .. } => robots.geode += 1,
-            Null => {}
-        }
+        robots += robot_to_build;
 
         let result = cost
             .iter()
             .filter(|x| match x {
                 Ore { .. } => {
                     robots.ore
-                        < cost
+                        < cost[1..]
                             .iter()
                             .map(|x| match x {
                                 Null => 0u32,
@@ -173,10 +215,11 @@ impl Game {
                             .max()
                             .unwrap()
                         && account.can_afford(*x)
+                        && !(matches!(robot_to_build, Null) && (account - robots).can_afford(*x))
                 }
                 Clay { .. } => {
                     robots.clay
-                        < cost
+                        < [&cost[3]]
                             .iter()
                             .map(|x| match x {
                                 Obsidian { clay, .. } => *clay,
@@ -185,10 +228,11 @@ impl Game {
                             .max()
                             .unwrap()
                         && account.can_afford(*x)
+                        && !(matches!(robot_to_build, Null) && (account - robots).can_afford(*x))
                 }
                 Obsidian { .. } => {
                     robots.obsidian
-                        < cost
+                        < [&cost[4]]
                             .iter()
                             .map(|x| match x {
                                 Geode { obsidian, .. } => *obsidian,
@@ -197,8 +241,12 @@ impl Game {
                             .max()
                             .unwrap()
                         && account.can_afford(*x)
+                        && !(matches!(robot_to_build, Null) && (account - robots).can_afford(*x))
                 }
-                Geode { .. } => account.can_afford(*x),
+                Geode { .. } => {
+                    account.can_afford(*x)
+                        && !(matches!(robot_to_build, Null) && (account - robots).can_afford(*x))
+                }
                 Null => !account.can_afford(&cost[4]),
             })
             .map(|robot_to_build| {
@@ -216,55 +264,58 @@ impl Game {
     }
 }
 
-pub fn part_one(input: &str) -> Option<u32> {
+pub fn run(input: &str, minutes: u32) -> impl Iterator<Item = u32> + '_ {
     let re = Regex::new(r"Blueprint (\d+): Each ore robot costs (\d+) ore. Each clay robot costs (\d+) ore. Each obsidian robot costs (\d+) ore and (\d+) clay. Each geode robot costs (\d+) ore and (\d+) obsidian.").unwrap();
+    input
+        .lines()
+        .map(move |line| {
+            re.captures_iter(line)
+                .filter_map(|cap| {
+                    cap.iter()
+                        .skip(1)
+                        .map(|x| x.unwrap().as_str().parse::<u32>().unwrap())
+                        .collect_tuple::<(u32, u32, u32, u32, u32, u32, u32)>()
+                })
+                .collect_tuple::<(_,)>()
+                .unwrap()
+        })
+        .map(|(x,)| {
+            [
+                Null,
+                Ore { ore: x.1 },
+                Clay { ore: x.2 },
+                Obsidian {
+                    ore: x.3,
+                    clay: x.4,
+                },
+                Geode {
+                    ore: x.5,
+                    obsidian: x.6,
+                },
+            ]
+        })
+        .map(move |cost| {
+            let mut game = Game::new();
+            game.dfs(Account::new(), Account::new(), cost[1], minutes + 1, &cost)
+        })
+}
+
+pub fn part_one(input: &str) -> Option<u32> {
     Some(
-        input
-            .lines()
-            .map(|line| {
-                re.captures_iter(line)
-                    .filter_map(|cap| {
-                        cap.iter()
-                            .skip(1)
-                            .map(|x| x.unwrap().as_str().parse::<u32>().unwrap())
-                            .collect_tuple::<(u32, u32, u32, u32, u32, u32, u32)>()
-                    })
-                    .collect_tuple::<(_,)>()
-                    .unwrap()
-            })
-            .map(|(x,)| {
-                [
-                    Null,
-                    Ore { ore: x.1 },
-                    Clay { ore: x.2 },
-                    Obsidian {
-                        ore: x.3,
-                        clay: x.4,
-                    },
-                    Geode {
-                        ore: x.5,
-                        obsidian: x.6,
-                    },
-                ]
-            })
-            .map(|cost| {
-                let mut game = Game::new();
-                game.dfs(Account::new(), Account::ore(), Null, 24, &cost)
-            })
+        run(input, 24)
             .enumerate()
             .map(|(i, x)| (i as u32 + 1) * x)
             .sum::<u32>(),
     )
 }
-
-// pub fn part_two(input: &str) -> Option<u32> {
-//     None
-// }
+pub fn part_two(input: &str) -> Option<u32> {
+    Some(run(input, 32).take(3).product())
+}
 
 fn main() {
     let input = &advent_of_code::read_file("inputs", 19);
     advent_of_code::solve!(1, part_one, input);
-    // advent_of_code::solve!(2, part_two, input);
+    advent_of_code::solve!(2, part_two, input);
 }
 
 #[cfg(test)]
@@ -277,9 +328,9 @@ mod tests {
         assert_eq!(part_one(&input), Some(33));
     }
 
-    // #[test]
-    // fn test_part_two() {
-    //     let input = advent_of_code::read_file("examples", 19);
-    //     assert_eq!(part_two(&input), None);
-    // }
+    #[test]
+    fn test_part_two() {
+        let input = advent_of_code::read_file("examples", 19);
+        assert_eq!(part_two(&input), Some(3472));
+    }
 }
