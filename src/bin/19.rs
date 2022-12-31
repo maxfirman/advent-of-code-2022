@@ -61,14 +61,6 @@ impl Sum for Account {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-struct Cost {
-    ore: Account,
-    clay: Account,
-    obsidian: Account,
-    geode: Account,
-}
-
 impl ops::Add<Account> for Account {
     type Output = Self;
 
@@ -141,7 +133,8 @@ impl Game {
         remaining: u32,
         cost: &[Robot; 5],
     ) -> u32 {
-        if account.geode + robots.geode * remaining + (0..remaining).sum::<u32>() < self.running_max
+        if account.geode + robots.geode * remaining + (remaining - 1) * remaining / 2
+            < self.running_max
         {
             return 0;
         }
