@@ -198,8 +198,7 @@ impl Game {
         // Build
         robots += robot_to_build;
 
-        let result = cost
-            .iter()
+        cost.iter()
             .filter(|x| match x {
                 Ore { .. } => {
                     robots.ore
@@ -259,8 +258,7 @@ impl Game {
                 )
             })
             .max()
-            .unwrap();
-        result
+            .unwrap()
     }
 }
 
