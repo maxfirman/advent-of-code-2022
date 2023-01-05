@@ -1,84 +1,93 @@
-use crate::Square::*;
-use cached::proc_macro::cached;
-use std::collections::HashSet;
+extern crate core;
 
-#[derive(Clone, Eq, PartialEq, Hash)]
-enum Square {
-    Start,
-    End,
-    Normal(u8),
+use std::collections::{HashMap, HashSet};
+
+fn dijkstra(
+    graph: HashMap<(usize, usize), Vec<(usize, usize)>>,
+    source: (usize, usize),
+    target: (usize, usize),
+) -> usize {
+    let mut dist = graph
+        .iter()
+        .map(|(k, _)| (*k, usize::MAX))
+        .collect::<HashMap<(usize, usize), usize>>();
+    dist.insert(source, 0);
+
+    let mut q = graph.iter().map(|(k, _)| *k).collect::<HashSet<_>>();
+    while !q.is_empty() {
+        let (u, dist_u) = q
+            .iter()
+            .map(|&k| (k, *dist.get(&k).unwrap()))
+            .min_by_key(|(_, d)| *d)
+            .unwrap();
+        if u == target {
+            return dist_u;
+        }
+        q.remove(&u);
+        for &v in graph.get(&u).unwrap().iter().filter(|&v| q.contains(v)) {
+            let alt = dist_u + 1;
+            if alt < *dist.get(&v).unwrap() {
+                dist.insert(v, alt);
+            }
+        }
+    }
+    panic!(" Did not find target node!")
 }
 
-#[cached]
-fn dfs(i: i32, j: i32, depth: i32, map: Vec<Vec<Square>>, mut visited: Vec<(i32, i32)>) -> i32 {
-    if i < 0 || i > map.len() as i32 || j < 0 || j > map[0].len() as i32 {
-        return 1_000_000_000;
-    }
-
-    visited.push((i, j));
-
-    let predicate = |(ii, jj): &&(i32, i32)| -> bool {
-        *ii >= 0
-            && *jj >= 0
-            && *ii < map.len() as i32
-            && *jj < map[0].len() as i32
-            && !visited.contains(&(*ii, *jj))
-    };
-
-    match map[i as usize][j as usize] {
-        Start => [(i - 1, j), (i + 1, j), (i, j + 1), (i, j - 1)]
-            .iter()
-            .filter(predicate)
-            .map(|(ii, jj)| dfs(*ii, *jj, depth + 1, map.clone(), visited.clone()))
-            .min()
-            .unwrap(),
-        Normal(height) => [(i - 1, j), (i + 1, j), (i, j + 1), (i, j - 1)]
-            .iter()
-            .filter(predicate)
-            .filter(|(ii, jj)| match map[*ii as usize][*jj as usize] {
-                Start => false,
-                Normal(next_height) => next_height <= height + 1,
-                End => height == 26,
-            })
-            .map(|(ii, jj)| dfs(*ii, *jj, depth + 1, map.clone(), visited.clone()))
-            .min()
-            .unwrap_or(1_000_000_000),
-        End => depth,
-    }
-}
-
-pub fn part_one(input: &str) -> Option<i32> {
+pub fn part_one(input: &str) -> Option<usize> {
     let map = input
         .lines()
         .map(|line| {
             line.chars()
                 .map(|c| match c {
-                    'S' => Start,
-                    'E' => End,
-                    _ => Normal(c as u8 - 96u8),
+                    'S' => 0u8,
+                    'E' => 27u8,
+                    _ => c as u8 - 96u8,
                 })
-                .collect::<Vec<Square>>()
+                .collect::<Vec<u8>>()
         })
         .collect::<Vec<Vec<_>>>();
 
     let m = map.len();
     let n = map[0].len();
 
-    let mut is = 0i32;
-    let mut js = 0i32;
+    let mut is = 0usize;
+    let mut js = 0usize;
+    let mut it = 0usize;
+    let mut jt = 0usize;
+
+    let mut graph: HashMap<(usize, usize), Vec<(usize, usize)>> = HashMap::new();
 
     for i in 0..m {
         for j in 0..n {
-            if let Start = map[i][j] {
-                is = i as i32;
-                js = j as i32;
-                break;
+            graph.insert(
+                (i, j),
+                [
+                    (i as i32 - 1, j as i32),
+                    (i as i32 + 1, j as i32),
+                    (i as i32, j as i32 + 1),
+                    (i as i32, j as i32 - 1),
+                ]
+                .iter()
+                .filter(|&&(ii, jj)| {
+                    ii >= 0 && jj >= 0 && ii < map.len() as i32 && jj < map[0].len() as i32
+                })
+                .map(|&(ii, jj)| (ii as usize, jj as usize))
+                .filter(|&(ii, jj)| map[ii][jj] <= map[i][j] + 1)
+                .collect::<Vec<(usize, usize)>>(),
+            );
+            if map[i][j] == 0 {
+                is = i;
+                js = j;
+            }
+            if map[i][j] == 27 {
+                it = i;
+                jt = j;
             }
         }
     }
 
-    let visited: Vec<(i32, i32)> = Vec::new();
-    Some(dfs(is, js, 0, map, visited))
+    Some(dijkstra(graph, (is, js), (it, jt)))
 }
 
 pub fn part_two(input: &str) -> Option<u32> {
